@@ -101,7 +101,6 @@ const Cart = () => {
               </div>
             )
           }
-          
         </SheetContent>
       </SheetTrigger>
     </Sheet>
