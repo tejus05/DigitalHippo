@@ -1,6 +1,9 @@
 import express from 'express';
 import { getPayloadClient } from './getPayload';
 import { nextApp, nextHandler } from './next-utils';
+import * as trpcExpress from '@trpc/server/adapters/express';
+import { appRouter } from './trpc';
+const createContext = ({req,res}:trpcExpress.CreateExpressContextOptions) => ({req,res})
 
 const app = express();
 
@@ -15,6 +18,11 @@ const start = async () => {
       }
     }
   });
+
+  app.use('/api/trpc', trpcExpress.createExpressMiddleware({
+    router: appRouter,
+    createContext
+  }));
 
   app.use((req, res) => nextHandler(req, res));
 
