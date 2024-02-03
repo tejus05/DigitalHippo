@@ -13,10 +13,23 @@ import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { ZodError, z } from 'zod';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const SignUp = () => {
   const router = useRouter();
+
+  const searchParams = useSearchParams();
+
+  const isSeller = searchParams.get('as') === "seller";
+
+  const origin = searchParams.get("origin");
+
+  const continueAsSeller = () => {
+    router.push("?as=seller");
+  }
+  const continueAsBuyer = () => {
+    router.replace("/sign-in",undefined);
+  }
 
   type TAuthCredentialsValidator = z.infer<typeof AuthCredentialsValidator>;
 
@@ -24,27 +37,31 @@ const SignUp = () => {
     resolver: zodResolver(AuthCredentialsValidator),
   });
 
-  const { mutate, isLoading } = trpc.auth.createPayloadUser.useMutation({
-    onError: (err) => {
-      if (err.data?.code === 'CONFLICT') {
-        toast.error("This email is already in use. Sign in instead. ");
+  const { mutate: signIn, isLoading } = trpc.auth.signIn.useMutation({
+    onSuccess: () => {
+      toast.success("Signed in successfully. ")
+      router.refresh();
+
+      if (origin) {
+        router.push(`/${origin}`)
+        return;
+      }
+      if (isSeller) {
+        router.push("/sell");
         return;
       }
 
-      if(err instanceof ZodError){
-        toast.error(err.issues[0].message)
-        return;
-      }
-      toast.error("Something went wrong. Please try again. ");
+      router.push("/");
     },
-    onSuccess: ({sentToEmail}) => {
-      toast.success(`Verification email sent to ${sentToEmail}`);
-      router.push(`/verify-email?to=${sentToEmail}`);
+    onError: (err)=> {
+      if (err.data?.code === "UNAUTHORIZED") {
+        toast.error("Invalid email or password");
+      }
     }
   })
 
-  const onSubmit = ({email, password}:TAuthCredentialsValidator) => {
-    mutate({ email, password });
+  const onSubmit = ({ email, password }: TAuthCredentialsValidator) => {
+    signIn({ email, password });
   }
 
   return (
@@ -52,16 +69,16 @@ const SignUp = () => {
       <div className='container relative flex pt-20 flex-col items-center justify-center lg:px-0'>
         <div className='mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]'>
           <div className='flex flex-col items-center text-center space-y-2'>
-            <Icons.logo className='h-20 w-20'/>
+            <Icons.logo className='h-20 w-20' />
             <h1 className='text-2xl font-bold'>
-              Create an account
+              Sign In to your {isSeller?`seller`:``} account
             </h1>
-            <Link href="/sign-in" className={buttonVariants({
+            <Link href="/sign-up" className={buttonVariants({
               variant: "link",
               className: "gap-1.5"
             })}>
-              Already have an account? Sign-in
-              <ArrowRightIcon className='h-4 w-4'/>
+              Don&apos; have an account? Sign Up
+              <ArrowRightIcon className='h-4 w-4' />
             </Link>
           </div>
 
@@ -75,7 +92,7 @@ const SignUp = () => {
                   <Input className={cn({
                     "focus-visible:ring-red-500": errors.email
                   })} placeholder='you@example.com'
-                  {...register("email")}
+                    {...register("email")}
                   />
                   {
                     errors?.email && (
@@ -92,7 +109,7 @@ const SignUp = () => {
                   <Input className={cn({
                     "focus-visible:ring-red-500": errors.password
                   })} placeholder='Password' type='password'
-                  {...register("password")}
+                    {...register("password")}
                   />
                   {
                     errors?.password && (
@@ -103,10 +120,31 @@ const SignUp = () => {
                   }
                 </div>
                 <Button>
-                  Sign Up
+                  Sign In
                 </Button>
               </div>
             </form>
+            <div className='relative'>
+              <div className='absolute inset-0 flex items-center' aria-hidden>
+                  <span className='w-full border-t'/>
+              </div>
+              <div className='relative flex justify-center text-xs uppercase'>
+                <span className='bg-background px-2 text-muted-foreground'>
+                  or
+                </span>
+              </div>
+            </div>
+            {
+              isSeller ? (
+                <Button onClick={continueAsBuyer} variant="secondary">
+                  Continue as customer
+                </Button>
+              ): (
+                <Button onClick={continueAsSeller} variant="secondary">
+                    Continue as seller
+                  </Button>
+              )
+            }
           </div>
         </div>
       </div>
